@@ -309,6 +309,7 @@ selaur:
   # Which uncertainty signal(s) to read off the rollout log-probs.
   use_combined: True        # blend entropy + nll + top2 (SELAUR default)
   method: entropy           # single signal used when use_combined=False: entropy | nll | top2
+  token_scope: full         # full | action | non_action
   w1: 1.0/3.0               # weight of the entropy signal in the blend
   w2: 1.0/3.0               # weight of the confidence-shortfall (nll) signal
   w3: 1.0/3.0               # weight of the top-2 margin signal
@@ -332,6 +333,7 @@ selaur:
 uqgigpo:
   use_combined: null
   method: null
+  token_scope: null
   w1: null
   w2: null
   w3: null

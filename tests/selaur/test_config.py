@@ -85,6 +85,16 @@ def test_typos_in_the_section_are_reported():
         SELAURConfig.from_hydra(OmegaConf.create({"selaur": {"step_wieght": 0.5}}))
 
 
+@pytest.mark.parametrize("scope", ["full", "action", "non_action"])
+def test_token_scopes_are_accepted(scope):
+    assert SELAURConfig(token_scope=scope).token_scope == scope
+
+
+def test_an_unknown_token_scope_is_rejected():
+    with pytest.raises(ValueError, match="Unknown selaur.token_scope"):
+        SELAURConfig(token_scope="arguments")
+
+
 def test_build_estimator_forwards_every_setting():
     """The config is the only place these values are set."""
     settings = SELAURConfig(transform="neg", step_weight=0.5, lambda_uq=0.1, rho=0.2)
@@ -102,3 +112,4 @@ def test_the_shipped_yaml_parses():
     settings = SELAURConfig.from_hydra(config)
     assert settings.transform == "linear"
     assert settings.w1 == pytest.approx(1 / 3)
+    assert settings.token_scope == "full"

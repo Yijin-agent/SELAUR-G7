@@ -34,6 +34,7 @@ from selaur.uncertainty.estimator import (
     UncertaintyEstimator,
     UncertaintyTrace,
 )
+from selaur.uncertainty.masking import TOKEN_SCOPES, build_token_scope_mask
 from selaur.uncertainty.signals import (
     SIGNAL_REGISTRY,
     combined_uncertainty,
@@ -52,9 +53,11 @@ __all__ = [
     "MULTIPLICATIVE_TRANSFORMS",
     "OutcomeSplit",
     "SIGNAL_REGISTRY",
+    "TOKEN_SCOPES",
     "TRANSFORMS",
     "UncertaintyEstimator",
     "UncertaintyTrace",
+    "build_token_scope_mask",
     "combined_uncertainty",
     "discounted_smooth",
     "step_entropy",

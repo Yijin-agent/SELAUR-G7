@@ -7,9 +7,9 @@ This repository is maintained by Group G7. It preserves the original SELAUR
 implementation as the experimental foundation while allowing multiple research
 directions to be developed and evaluated independently.
 
-> **Current research proposal:** Action-SELAUR is specified below, but its code
-> has not yet been implemented on this branch. The existing training code still
-> behaves as the original SELAUR implementation.
+> **Current implementation:** Action-SELAUR token scoping is implemented on
+> this branch. Full-response SELAUR remains the default for backward
+> compatibility.
 
 ## Foundation: SELAUR
 
@@ -56,7 +56,7 @@ fluent and confident explanation followed by the wrong action. Full-response
 averaging may therefore introduce response-length and reasoning-style
 confounds into reward shaping.
 
-### Proposed method
+### Implemented method
 
 Original full-response uncertainty:
 
@@ -99,6 +99,18 @@ The action span must match the environment projection logic:
 Malformed responses require a fallback consistent with the action executed by
 the environment. Its rate must be logged so invalid formats cannot silently
 bias action uncertainty.
+
+### Configuration
+
+Set the uncertainty token scope through Hydra:
+
+```bash
+selaur.token_scope=full        # original SELAUR (default)
+selaur.token_scope=action      # tokens overlapping action content
+selaur.token_scope=non_action  # tokens outside the tagged action block
+```
+
+Malformed or empty action blocks fall back to the full response.
 
 ## Research Hypotheses
 
@@ -160,17 +172,16 @@ Primary training metrics:
 The success-rate gate must be logged explicitly. If it never activates, the
 training comparison cannot test the effect of changing the uncertainty mask.
 
-## Planned Implementation Surface
+## Implementation Surface
 
-| Module | Planned responsibility |
+| Module | Responsibility |
 | --- | --- |
-| `agent_system/multi_turn_rollout/rollout_loop.py` | Build the action-token mask while response IDs, decoded text, and rollout log-probabilities remain aligned. |
-| `selaur/uncertainty/` | Apply the configured token mask before reducing uncertainty. |
-| `verl/trainer/ppo/metric_utils.py` | Log full/action/non-action diagnostics and mask quality. |
-| `tests/selaur/` | Test span extraction, malformed-output fallback, masking, and backward compatibility. |
+| `agent_system/multi_turn_rollout/rollout_loop.py` | Build and apply the configured mask while response IDs and rollout log-probabilities remain aligned. |
+| `selaur/uncertainty/masking.py` | Map generated token IDs to full, action, or non-action masks without re-tokenizing. |
+| `selaur/config.py` | Validate the `token_scope` setting. |
+| `tests/selaur/` | Test span extraction, fallback behavior, masking, and backward compatibility. |
 
-The rollout collector is the preferred place to construct the mask. Retokenizing
-decoded responses later may break alignment with top-1/top-2 log-probabilities.
+The rollout collector constructs the mask before storing top-1/top-2 log-probabilities.
 
 ## Repository Layout
 

@@ -25,6 +25,7 @@ from verl.models.transformers.qwen2_vl import get_rope_index
 from agent_system.multi_turn_rollout.utils import process_image, to_list_of_dict, torch_to_numpy, filter_group_data
 from agent_system.environments import EnvironmentManagerBase
 from selaur.estimators import GROUP_STEP_ESTIMATOR_NAMES
+from selaur.uncertainty.masking import TOKEN_SCOPES, build_token_scope_mask
 from typing import List, Dict, Tuple
 
 class TrajectoryCollector:
@@ -40,6 +41,17 @@ class TrajectoryCollector:
         self.config = config
         self.tokenizer = tokenizer
         self.processor = processor
+        selaur_config = getattr(config, "selaur", None)
+        self.uncertainty_token_scope = (
+            getattr(selaur_config, "token_scope", "full")
+            if selaur_config is not None
+            else "full"
+        )
+        if self.uncertainty_token_scope not in TOKEN_SCOPES:
+            raise ValueError(
+                f"Unknown selaur.token_scope {self.uncertainty_token_scope!r}. "
+                f"Choose from {TOKEN_SCOPES}."
+            )
 
     def preprocess_single_sample(
         self,
@@ -386,9 +398,20 @@ class TrajectoryCollector:
                 logprobs = b.batch['rollout_log_probs']
                 logprobs_2nd = b.batch['rollout_log_probs_2nd']
                 prompt_len = len(b.batch['prompts'])
-                answer_len = sum(b.batch['attention_mask'][len(b.batch['prompts']):])
+                answer_len = int(
+                    b.batch['attention_mask'][len(b.batch['prompts']):].sum().item()
+                )
                 logprobs = logprobs[:answer_len]
                 logprobs_2nd = logprobs_2nd[:answer_len]
+                if self.uncertainty_token_scope != "full":
+                    response_ids = b.batch['responses'][:answer_len]
+                    token_mask = build_token_scope_mask(
+                        response_ids,
+                        self.tokenizer,
+                        self.uncertainty_token_scope,
+                    ).to(logprobs.device)
+                    logprobs = logprobs[token_mask]
+                    logprobs_2nd = logprobs_2nd[token_mask]
                 logprobs_list[b_index].append((logprobs, logprobs_2nd))
 
 

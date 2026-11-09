@@ -34,6 +34,7 @@ from dataclasses import dataclass, fields
 from typing import Any, Optional, Union
 
 from selaur.uncertainty.estimator import UncertaintyEstimator
+from selaur.uncertainty.masking import TOKEN_SCOPES
 from selaur.uncertainty.signals import SIGNAL_REGISTRY
 from selaur.uncertainty.transforms import TRANSFORMS
 
@@ -92,6 +93,8 @@ class SELAURConfig:
             ``False``; one of ``entropy``, ``nll``, ``top2``.
         use_combined: Blend all three signals instead of using ``method`` alone.
             This is the SELAUR default.
+        token_scope: Generated tokens used to estimate uncertainty: the full
+            response, the executed action, or everything outside the action.
         w1: Weight of the entropy signal in the blend.
         w2: Weight of the confidence-shortfall signal in the blend.
         w3: Weight of the top-2 margin signal in the blend.
@@ -114,6 +117,7 @@ class SELAURConfig:
 
     method: str = "entropy"
     use_combined: bool = True
+    token_scope: str = "full"
     w1: float = 1.0 / 3.0
     w2: float = 1.0 / 3.0
     w3: float = 1.0 / 3.0
@@ -139,6 +143,12 @@ class SELAURConfig:
         for name in self._FLOAT_FIELDS:
             object.__setattr__(self, name, float(getattr(self, name)))
         object.__setattr__(self, "use_combined", bool(self.use_combined))
+
+        if self.token_scope not in TOKEN_SCOPES:
+            raise ValueError(
+                f"Unknown selaur.token_scope {self.token_scope!r}. "
+                f"Choose from {TOKEN_SCOPES}."
+            )
 
         if self.transform not in TRANSFORMS:
             raise ValueError(
