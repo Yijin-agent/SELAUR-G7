@@ -265,6 +265,58 @@ Unit tests:
 pytest tests/selaur -q
 ```
 
+## Pilot Experiment: Single-GPU SELAUR Reproduction
+
+All results in this section come from the original SELAUR code (commit `1bd4904`), before action-scoped masking was added. That code is equivalent to the current branch with `selaur.token_scope: full`, which is the default, so the launchers below reproduce the same setting unchanged. Logs, checkpoints and traces are kept outside the repository.
+
+This section describes a reproduction on one A100-80GB on a shared Slurm cluster. The account and partition names in the `.sbatch` files are site-specific, so change them for your cluster.
+
+### Environment
+
+`scripts/install_env.sbatch` builds the `selaur` conda env (ALFWorld variant) on a compute node. On login nodes with a small memory cap, conda gets OOM-killed. Beyond the Install steps above, the script applies the pins that vLLM 0.8.5 needs:
+
+| Pin | Why |
+| --- | --- |
+| `setuptools<81` | `verl` imports `pkg_resources`, which setuptools 81+ removed. |
+| `ray[default]==2.46.0` | Ray ≥2.5x requires a newer OpenTelemetry than vLLM 0.8.5 allows; the raylet fails at startup. |
+| `opentelemetry-api/sdk==1.26.0`, `opentelemetry-exporter-prometheus==0.47b0`, `protobuf<5`, `google-api-core<2.25`, `proto-plus<1.26` | Keep the OpenTelemetry stack consistent with vLLM 0.8.5. |
+| `wandb<0.20` | Newer wandb requires OpenTelemetry ≥1.43. |
+| conda-forge `libstdcxx-ng` + an `activate.d` hook that sets `LD_LIBRARY_PATH` | `tensordict` needs `GLIBCXX_3.4.29`, which older system libstdc++ lacks (`scripts/fix_libstdcxx_and_verify.sh`). |
+
+For Sokoban, additionally run `pip install gym==0.26.2 gym_sokoban==0.0.6`. These packages work with NumPy 2 and only print a warning.
+
+### Added scripts
+
+| Script | Purpose |
+| --- | --- |
+| `examples/selaur_trainer/smoke_alfworld_1gpu.sh` | 2-step end-to-end smoke test on 1 GPU. |
+| `examples/selaur_trainer/run_alfworld_1gpu.sh` | Full ALFWorld run on 1 GPU (paper hyper-parameters), console logging, checkpoint every 10 steps. |
+| `examples/selaur_trainer/run_sokoban_text_1gpu.sh` | Text-mode Sokoban (6×6, 1 box, ≤15 steps), same SELAUR hyper-parameters, 30-step pilot. |
+| `examples/baselines/eval_{alfworld,sokoban}_qwen7b_prompt.sh` | Prompt-only Qwen2.5-7B baseline via `+trainer.val_only=True`. The reference model is disabled and the actor is loaded in bf16 to fit one GPU. |
+| `scripts/case_study_trace.py` | Runs full episodes with the training-time prompt, memory and parser. Logs each step's observation, `<think>`, action, feedback and SELAUR uncertainty signals (`.txt` + `.json`). |
+| `scripts/*.sbatch` | Slurm wrappers for install, smoke test, training, baseline evaluation and case-study tracing. |
+
+### Practical notes
+
+- **Host RAM:** ALFWorld starts 16 × 8 = 128 environment actors. Peak RSS was about 105 GB, so request at least 192 GB. 96 GB was OOM-killed.
+- **Step time on 1 GPU:** about 13–15 min per step for ALFWorld (about 37 h for 150 steps) and about 4.6 min per step for Sokoban.
+- **Model export:** the single-GPU checkpoint lacks `fsdp_config.json`, and `verl.model_merger` then assumes `world_size=2`. Write `{"world_size": 1}` to `<ckpt>/actor/fsdp_config.json` before merging.
+- **Experiment names:** `job_name` in `run_alfworld.sh` contains `1/3`, which creates nested checkpoint directories. Use a slash-free name.
+
+### Results (Qwen2.5-1.5B, 1×A100, one seed)
+
+Validation success rate on 128 episodes. The same episodes, prompt, parser and temperature (0.4) are used for every system.
+
+| System | ALFWorld (150 steps) | Sokoban (30-step pilot) |
+| --- | --- | --- |
+| SELAUR | **68.8%** (12.5% before training) | **18.8%** |
+| Qwen2.5-1.5B, prompt only | 12.5% | 11.7% |
+| Qwen2.5-7B, prompt only | 15.6% | 16.4% |
+
+With n = 128, the 95% interval is about ±7 points. Uncertainty reshaping was active on 77 of the 150 ALFWorld steps and never in the Sokoban pilot, because batch success never exceeded the 0.5 threshold. The Sokoban number therefore reflects only the group-advantage RL backbone. GiGPO and GRPO baselines have not been run yet.
+
+In traced episodes, the trained agent at temperature 0.4 sometimes repeats its `<think>` text until the 512-token limit and emits no action. This happened in 43% of steps across 7 tasks, versus 1% for the base model. Those steps have low uncertainty: 0.085 on average, versus 0.267 for valid steps.
+
 ## Git Workflow
 
 - `origin` points to the private G7 repository.
