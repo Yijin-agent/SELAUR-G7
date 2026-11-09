@@ -60,15 +60,15 @@ confounds into reward shaping.
 
 Original full-response uncertainty:
 
-\[
+$$
 U_{\text{full}} = \frac{1}{N}\sum_{i=1}^{N} u_i
-\]
+$$
 
-Proposed action-only uncertainty:
+Action-only uncertainty:
 
-\[
+$$
 U_{\text{action}} = \frac{1}{|A|}\sum_{i \in A} u_i
-\]
+$$
 
 Here, \(A\) is the token span corresponding to the action actually passed to
 the environment.
@@ -228,6 +228,36 @@ ALFWorld:
 conda activate selaur
 bash examples/selaur_trainer/run_alfworld.sh
 ```
+
+## Running Action-SELAUR
+
+In `verl/trainer/config/ppo_trainer.yaml`, set the SELAUR token scope to
+`action`:
+
+```yaml
+selaur:
+  token_scope: action
+```
+
+Keep the remaining SELAUR and training settings unchanged, then run the same
+environment-specific launcher.
+
+WebShop:
+
+```bash
+conda activate selaur-webshop
+bash examples/selaur_trainer/run_webshop.sh
+```
+
+ALFWorld:
+
+```bash
+conda activate selaur
+bash examples/selaur_trainer/run_alfworld.sh
+```
+
+Set `token_scope: full` to reproduce the original SELAUR baseline. Use
+`token_scope: non_action` for the reasoning-token negative control.
 
 Unit tests:
 
