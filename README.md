@@ -265,6 +265,60 @@ Unit tests:
 pytest tests/selaur -q
 ```
 
+## Preliminary Seed 0 Results
+
+We compare Full SELAUR, Action-SELAUR, and the non-action control on WebShop
+and ALFWorld using Qwen2.5-1.5B-Instruct. All conditions use the same training
+configuration (150 training steps and 8 rollouts); only the uncertainty token
+scope changes.
+
+The table reports the best observed validation checkpoint selected separately
+for each method. These are preliminary single-seed results, so the differences
+should be treated as evidence for further study rather than statistical proof.
+Seed 1 is not included because those runs are still incomplete.
+
+### Best observed validation checkpoint
+
+| Environment | Full SELAUR | Action-SELAUR | Non-action control |
+| --- | ---: | ---: | ---: |
+| WebShop | 64.8% @ step 120 | **78.9% @ step 145** | 70.7% @ step 145 |
+| ALFWorld | 84.4% @ step 145 | **85.2% @ step 100** | 83.6% @ step 145 |
+
+Action-SELAUR improves the best observed WebShop validation success by 14.1
+percentage points over Full SELAUR. On ALFWorld, its 0.8-point lead corresponds
+to one validation episode and is not meaningful evidence on its own.
+
+![Best observed validation checkpoint](results/seed0/best-checkpoint-results.svg)
+
+### Learning curves
+
+| WebShop | ALFWorld |
+| --- | --- |
+| ![WebShop validation learning curve](results/seed0/webshop-learning-curve.svg) | ![ALFWorld validation learning curve](results/seed0/alfworld-learning-curve.svg) |
+
+### Uncertainty diagnostics
+
+The following figures compare the uncertainty signal across successful and
+failed validation trajectories. Failure separation is the difference between
+mean failure uncertainty and mean success uncertainty; a larger positive value
+indicates a stronger failure signal. Because uncertainty magnitude depends on
+the selected token scope, comparisons across methods should emphasize
+separation rather than raw scale alone.
+
+![Success-failure uncertainty separation](results/seed0/uncertainty-failure-separation.svg)
+
+| WebShop | ALFWorld |
+| --- | --- |
+| ![WebShop uncertainty by trajectory outcome](results/seed0/webshop-uncertainty-by-outcome.svg) | ![ALFWorld uncertainty by trajectory outcome](results/seed0/alfworld-uncertainty-by-outcome.svg) |
+
+### ALFWorld task breakdown
+
+The task-type view reports validation success at each method's independently
+selected best checkpoint. It is descriptive only: the number of validation
+episodes per task type is small in this single-seed study.
+
+![ALFWorld validation success by task type](results/seed0/alfworld-task-breakdown.svg)
+
 ## Git Workflow
 
 - `origin` points to the private G7 repository.
